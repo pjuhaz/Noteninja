@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>NoteNinja — Note Value Trainer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+```
+html, body {
+  width: 100%; height: 100%;
+  overflow-x: hidden;
+  background: linear-gradient(135deg, #0f0c29 0%, #1a1040 50%, #0f0c29 100%);
+  font-family: 'Nunito', system-ui, sans-serif;
+  color: #fff;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 20px 14px 32px;
+}
+
+/* ── Animations ── */
+@keyframes floatNote { from{transform:translateY(0)rotate(-5deg)} to{transform:translateY(-10px)rotate(5deg)} }
+@keyframes fadeIn    { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pulse     { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+@keyframes shake     { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-7px)} 40%,80%{transform:translateX(7px)} }
+@keyframes correctPop{ 0%{transform:scale(.9);opacity:0} 60%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
+@keyframes streakPop { 0%{transform:scale(1)} 50%{transform:scale(1.2)} 100%{transform:scale(1)} }
+
+.anim-fadeIn    { animation: fadeIn 0.4s ease both; }
+.anim-pulse     { animation: pulse 0.45s ease; }
+.anim-shake     { animation: shake 0.4s ease; }
+.anim-correctPop{ animation: correctPop 0.3s ease both; }
+
+/* ── Card / glass ── */
+.card {
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 20px 16px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  width: 100%;
+}
+
+/* ── Buttons ── */
+button {
+  font-family: 'Nunito', system-ui, sans-serif;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.12s, opacity 0.12s;
+  -webkit-user-select: none; user-select: none;
+}
+button:active { transform: scale(0.96) !important; }
+
+.btn-ghost {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  color: rgba(255,255,255,0.65);
+  border-radius: 13px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.btn-primary {
+  background: linear-gradient(135deg,#A29BFE,#6c5ce7);
+  color: #fff;
+  border-radius: 14px;
+  padding: 14px 0;
+  font-size: 15px;
+  font-weight: 800;
+  width: 100%;
+  box-shadow: 0 8px 24px rgba(162,155,254,0.35);
+}
+
+/* ── Note display ── */
+.note-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+.note-label { font-size: 12px; font-weight: 800; line-height: 1.2; text-align: center; }
+
+/* ── XP bar ── */
+.xp-track {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 99px;
+  overflow: hidden;
+  margin: 5px 0 3px;
+}
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #A29BFE, #fd79a8);
+  border-radius: 99px;
+  transition: width 0.6s ease;
+}
+
+/* ── Progress bar ── */
+.prog-track {
+  height: 5px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+  margin: 4px 0 14px;
+  overflow: hidden;
+}
+.prog-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+/* ── Mode buttons (home) ── */
+.mode-btn {
+  width: 100%;
+  border-radius: 18px;
+  padding: 16px 18px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  text-align: left;
+  margin-bottom: 10px;
+}
+.mode-btn .mode-icon { font-size: 28px; flex-shrink: 0; }
+.mode-btn .mode-title { font-size: 16px; font-weight: 900; }
+.mode-btn .mode-sub   { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+
+/* ── Quiz choice buttons ── */
+.choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.choice-btn {
+  border-radius: 18px;
+  padding: 20px 0;
+  font-size: 26px;
+  font-weight: 900;
+  color: #fff;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  width: 100%;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+}
+
+/* ── Fill palette ── */
+.palette-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.palette-btn {
+  border-radius: 12px;
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+/* ── Drop zone ── */
+.drop-zone {
+  min-height: 80px;
+  border-radius: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(255,255,255,0.13);
+  background: rgba(255,255,255,0.03);
+  transition: background 0.2s, border-color 0.2s;
+  margin-bottom: 12px;
+}
+
+/* ── Match cards ── */
+.match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.match-card {
+  border-radius: 18px;
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 110px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  transition: background 0.2s, border-color 0.2s, transform 0.12s, opacity 0.2s;
+}
+
+/* ── Floating notes ── */
+.float-wrap { position: relative; height: 44px; overflow: hidden; margin-bottom: 8px; }
+.float-note { position: absolute; opacity: 0.28; }
+
+/* ── Fill bar ── */
+.fill-track {
+  height: 12px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+.fill-bar {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* ── Streak badge ── */
+.streak-badge {
+  background: linear-gradient(135deg,#FFC312,#F79F1F);
+  border-radius: 20px;
+  padding: 5px 11px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(255,195,18,0.35);
+  animation: streakPop 0.4s ease;
+}
+.xp-badge {
+  background: rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 5px 13px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* ── Feedback text ── */
+.fb-correct { color: #2ED573; font-weight: 800; font-size: 14px; text-align: center; margin-top: 11px; animation: fadeIn 0.3s ease; }
+.fb-wrong   { color: #FF4757; font-weight: 700; font-size: 13px; text-align: center; margin-top: 11px; animation: fadeIn 0.3s ease; }
+.fb-warn    { color: #FF9F43; font-weight: 700; font-size: 13px; text-align: center; margin-top: 10px; animation: fadeIn 0.3s ease; }
+
+/* ── Responsive max-width ── */
+.app-inner { width: 100%; max-width: 480px; }
+
+/* ── Open-in-new-window button ── */
+#open-btn {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  color: rgba(255,255,255,0.7);
+  border-radius: 12px;
+  padding: 8px 13px;
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  backdrop-filter: blur(10px);
+}
+```
+
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<button id="open-btn" onclick="window.open(window.location.href,'_blank','width=520,height=800')">⤢ Open in window</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+<script>
+const { useState, useRef, useEffect } = React;
+
+// ─── NOTE DATA ───────────────────────────────────────────────────────────────
+const NOTES = [
+  { id:"whole",          label:"Whole Note",          parts:16, color:"#FF6B6B" },
+  { id:"half",           label:"Half Note",           parts:8,  color:"#FF9F43" },
+  { id:"dotted-half",   label:"Dotted Half Note",    parts:12, color:"#FFC312" },
+  { id:"quarter",       label:"Quarter Note",        parts:4,  color:"#2ED573" },
+  { id:"dotted-quarter",label:"Dotted Quarter Note", parts:6,  color:"#1E90FF" },
+  { id:"eighth",        label:"Eighth Note",         parts:2,  color:"#A29BFE" },
+  { id:"dotted-eighth", label:"Dotted Eighth Note",  parts:3,  color:"#FD79A8" },
+  { id:"sixteenth",     label:"Sixteenth Note",      parts:1,  color:"#00CEC9" },
+];
+const NOTE_MAP = Object.fromEntries(NOTES.map(n=>[n.id,n]));
+const PALETTE_IDS = ["whole","half","quarter","eighth","sixteenth"];
+
+// ─── SVG GLYPHS ──────────────────────────────────────────────────────────────
+function svgGlyph(noteId, size, color) {
+  const s = size;
+  const glyphs = {
+    whole:  `<ellipse cx="28" cy="30" rx="14" ry="10" fill="none" stroke="${color}" stroke-width="3.5"/>`,
+    half:   `<ellipse cx="22" cy="36" rx="11" ry="8" fill="none" stroke="${color}" stroke-width="3.2" transform="rotate(-15 22 36)"/><line x1="32" y1="33" x2="32" y2="8" stroke="${color}" stroke-width="3"/>`,
+    "dotted-half": `<ellipse cx="20" cy="36" rx="11" ry="8" fill="none" stroke="${color}" stroke-width="3.2" transform="rotate(-15 20 36)"/><line x1="30" y1="33" x2="30" y2="8" stroke="${color}" stroke-width="3"/><circle cx="40" cy="31" r="3.5" fill="${color}"/>`,
+    quarter:`<ellipse cx="22" cy="36" rx="11" ry="8" fill="${color}" transform="rotate(-15 22 36)"/><line x1="32" y1="33" x2="32" y2="8" stroke="${color}" stroke-width="3"/>`,
+    "dotted-quarter":`<ellipse cx="20" cy="36" rx="11" ry="8" fill="${color}" transform="rotate(-15 20 36)"/><line x1="30" y1="33" x2="30" y2="8" stroke="${color}" stroke-width="3"/><circle cx="40" cy="31" r="3.5" fill="${color}"/>`,
+    eighth: `<ellipse cx="22" cy="36" rx="11" ry="8" fill="${color}" transform="rotate(-15 22 36)"/><line x1="32" y1="33" x2="32" y2="8" stroke="${color}" stroke-width="3"/><path d="M32 8 Q46 14 38 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"/>`,
+    "dotted-eighth":`<ellipse cx="18" cy="36" rx="11" ry="8" fill="${color}" transform="rotate(-15 18 36)"/><line x1="28" y1="33" x2="28" y2="8" stroke="${color}" stroke-width="3"/><path d="M28 8 Q42 14 34 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"/><circle cx="40" cy="31" r="3.5" fill="${color}"/>`,
+    sixteenth:`<ellipse cx="22" cy="36" rx="11" ry="8" fill="${color}" transform="rotate(-15 22 36)"/><line x1="32" y1="33" x2="32" y2="8" stroke="${color}" stroke-width="3"/><path d="M32 8 Q46 14 38 22" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"/><path d="M32 15 Q46 21 38 29" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"/>`,
+  };
+  const inner = glyphs[noteId] || '';
+  return `<svg width="${s}" height="${s}" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+}
+
+function NoteGlyph({ noteId, size=56, color="#fff" }) {
+  return React.createElement('span', {
+    dangerouslySetInnerHTML: { __html: svgGlyph(noteId, size, color) },
+    style: { display:'inline-flex', alignItems:'center', justifyContent:'center' }
+  });
+}
+
+// ─── XP / LEVELS ─────────────────────────────────────────────────────────────
+const LEVELS = [
+  {level:1,name:"Beginner",xpNeeded:0},  {level:2,name:"Learner",xpNeeded:50},
+  {level:3,name:"Apprentice",xpNeeded:120},{level:4,name:"Player",xpNeeded:250},
+  {level:5,name:"Musician",xpNeeded:450}, {level:6,name:"Performer",xpNeeded:700},
+  {level:7,name:"Expert",xpNeeded:1000},  {level:8,name:"Maestro",xpNeeded:1400},
+];
+function getLevel(xp){
+  let cur=LEVELS[0];
+  for(const l of LEVELS) if(xp>=l.xpNeeded) cur=l;
+  const next=LEVELS.find(l=>l.xpNeeded>xp);
+  return {...cur, next, progress: next?(xp-cur.xpNeeded)/(next.xpNeeded-cur.xpNeeded):1};
+}
+
+// ─── SHARED COMPONENTS ───────────────────────────────────────────────────────
+const e = React.createElement;
+
+function XPBar({xp}){
+  const li=getLevel(xp);
+  return e('div',{style:{marginBottom:20}},
+    e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:12,color:'rgba(255,255,255,0.45)',marginBottom:5}},
+      e('span',null,'⭐ '+li.name), e('span',null,xp+' XP')
+    ),
+    e('div',{className:'xp-track'},
+      e('div',{className:'xp-fill',style:{width:`${li.progress*100}%`}})
+    ),
+    li.next && e('div',{style:{fontSize:11,color:'rgba(255,255,255,0.3)',textAlign:'right'}},
+      `${li.next.xpNeeded-xp} XP to ${li.next.name}`
+    )
+  );
+}
+
+function FloatingNotes(){
+  const ids=["whole","half","quarter","eighth","sixteenth"];
+  return e('div',{className:'float-wrap'},
+    ...ids.map((id,i)=>e('div',{key:id,className:'float-note',style:{
+      left:`${10+i*18}%`, top:`${6+(i%2)*14}px`,
+      animation:`floatNote ${2.5+i*0.4}s ease-in-out infinite alternate`,
+      animationDelay:`${i*0.3}s`
+    }}, e(NoteGlyph,{noteId:id,size:26,color:NOTE_MAP[id].color})))
+  );
+}
+
+function StreakXP({streak,xp}){
+  return e('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+    streak>=2 && e('div',{className:'streak-badge'},'🔥'+streak),
+    e('div',{className:'xp-badge'},'⭐'+xp)
+  );
+}
+
+function ProgBar({cur,total,color,label,right}){
+  return e('div',{style:{marginBottom:16}},
+    e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(255,255,255,0.3)',marginBottom:4}},
+      e('span',null,label), e('span',null,right)
+    ),
+    e('div',{className:'prog-track'},
+      e('div',{className:'prog-fill',style:{width:`${(cur/total)*100}%`,background:color||'linear-gradient(90deg,#A29BFE,#fd79a8)'}})
+    )
+  );
+}
+
+function HeaderBar({onHome,streak,xp}){
+  return e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}},
+    e('button',{className:'btn-ghost',onClick:onHome},'← Home'),
+    e(StreakXP,{streak,xp})
+  );
+}
+
+// ─── MODE 1: DIVISION QUIZ ───────────────────────────────────────────────────
+function makeDivisionQ(usedPairs=new Set()){
+  const pairs=[];
+  for(const big of NOTES) for(const small of NOTES)
+    if(big.parts>small.parts&&big.parts%small.parts===0)
+      pairs.push({big,small,answer:big.parts/small.parts});
+  const pool=pairs.filter(p=>!usedPairs.has(`${p.big.id}-${p.small.id}`));
+  const src=pool.length?pool:pairs;
+  const q=src[Math.floor(Math.random()*src.length)];
+  const ans=new Set([q.answer]);
+  [q.answer-1,q.answer+1,q.answer*2,Math.floor(q.answer/2),q.answer+2,q.answer+3]
+    .filter(n=>n>0&&n!==q.answer&&n<=32).sort(()=>Math.random()-0.5)
+    .forEach(n=>{if(ans.size<4)ans.add(n);});
+  return{...q,choices:[...ans].sort(()=>Math.random()-0.5)};
+}
+
+function DivisionQuiz({xp,setXp,onDone,onHome}){
+  const SESSION=10;
+  const initQ=makeDivisionQ();
+  const [q,setQ]=useState(initQ);
+  const [used,setUsed]=useState(new Set([`${initQ.big.id}-${initQ.small.id}`]));
+  const [sel,setSel]=useState(null);
+  const [ok,setOk]=useState(null);
+  const [streak,setStreak]=useState(0);
+  const [sxp,setSxp]=useState(0);
+  const [score,setScore]=useState({c:0,t:0});
+  const [qn,setQn]=useState(1);
+  const [cardClass,setCardClass]=useState('anim-fadeIn');
+
+  const next=(u)=>{
+    const nq=makeDivisionQ(u);
+    const nu=new Set(u); nu.add(`${nq.big.id}-${nq.small.id}`);
+    setUsed(nu); setQ(nq); setSel(null); setOk(null); setCardClass('anim-fadeIn');
+  };
+
+  const pick=(choice)=>{
+    if(sel!==null)return;
+    setSel(choice);
+    const correct=choice===q.answer; setOk(correct);
+    const ns=correct?streak+1:0; setStreak(ns);
+    const bonus=correct?(ns>=5?20:ns>=3?15:10):0;
+    if(correct){setXp(x=>x+bonus);setSxp(s=>s+bonus);setCardClass('anim-pulse');}
+    else setCardClass('anim-shake');
+    const newScore={c:score.c+(correct?1:0),t:score.t+1};
+    setScore(newScore);
+    if(qn>=SESSION){
+      setTimeout(()=>onDone({score:{correct:newScore.c,total:SESSION},sessionXp:sxp+bonus}),1100);
+    } else {
+      setTimeout(()=>{setQn(n=>n+1);next(used);},1100);
+    }
+  };
+
+  const {big,small,choices,answer}=q;
+  return e('div',{className:'app-inner'},
+    e(HeaderBar,{onHome,streak,xp}),
+    e(ProgBar,{cur:qn,total:SESSION,label:`Question ${qn}/${SESSION}`,right:`${score.c} correct`}),
+
+    // Question card
+    e('div',{className:`card ${cardClass}`,style:{marginBottom:14,textAlign:'center'}},
+      e('p',{style:{fontSize:11,fontWeight:700,letterSpacing:2,color:'rgba(255,255,255,0.3)',textTransform:'uppercase',marginBottom:16}},'How many parts?'),
+      e('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:12}},
+        e('div',{className:'note-tile',style:{background:`${big.color}15`,border:`2px solid ${big.color}40`,flex:1}},
+          e(NoteGlyph,{noteId:big.id,size:58,color:big.color}),
+          e('div',{className:'note-label',style:{color:big.color}},big.label)
+        ),
+        e('div',{style:{fontSize:26,color:'rgba(255,255,255,0.2)',fontWeight:900}},'÷'),
+        e('div',{className:'note-tile',style:{background:`${small.color}15`,border:`2px solid ${small.color}40`,flex:1}},
+          e(NoteGlyph,{noteId:small.id,size:48,color:small.color}),
+          e('div',{className:'note-label',style:{color:small.color}},small.label)
+        )
+      )
+    ),
+
+    // Choice buttons
+    e('div',{className:'choice-grid'},
+      choices.map(c=>{
+        const isSel=sel===c, isRight=c===answer;
+        let bg='rgba(255,255,255,0.07)',bc='rgba(255,255,255,0.12)',col='#fff',extra='';
+        if(isSel&&ok)            {bg='rgba(46,213,115,0.2)'; bc='#2ED573'; col='#2ED573'; extra='anim-correctPop';}
+        else if(isSel&&!ok)      {bg='rgba(255,71,87,0.2)';  bc='#FF4757'; col='#FF4757';}
+        else if(sel!==null&&isRight){bg='rgba(46,213,115,0.15)';bc='#2ED573';col='#2ED573';}
+        return e('button',{key:c,className:`choice-btn ${extra}`,
+          style:{background:bg,borderColor:bc,color:col,cursor:sel!==null?'default':'pointer'},
+          onClick:()=>pick(c)},c);
+      })
+    ),
+
+    // Feedback
+    sel!==null && e('div',null,
+      ok
+        ? e('div',{className:'fb-correct'},streak>=3?`🔥 ${streak} in a row! +${streak>=5?20:15} XP`:'✓ Correct! +10 XP')
+        : e('div',{className:'fb-wrong'},`Answer: `,e('strong',null,answer),` — a ${big.label} has ${answer} ${answer===1?'part':'parts'}, each a ${small.label}`)
+    )
+  );
+}
+
+// ─── MODE 2: FILL THE MEASURE ────────────────────────────────────────────────
+function subsetSumsTo(items,target){
+  const dp=new Set([0]);
+  for(const v of items){
+    const next=new Set(dp);
+    for(const s of dp) next.add(s+v);
+    dp.clear();
+    for(const s of next) if(s<=target) dp.add(s);
+  }
+  return dp.has(target);
+}
+
+function makeFillPuzzle(){
+  const targets=NOTES.filter(n=>[8,12,16].includes(n.parts));
+  const target=targets[Math.floor(Math.random()*targets.length)];
+  const allowed=PALETTE_IDS.map(id=>NOTE_MAP[id]).filter(n=>n.parts<target.parts);
+  let rem=target.parts,sol=[],tries=0;
+  while(rem>0&&tries<60){
+    tries++;
+    const fits=allowed.filter(n=>n.parts<=rem);
+    if(!fits.length) break;
+    const pick=fits[Math.floor(Math.random()*fits.length)];
+    sol.push(pick.id); rem-=pick.parts;
+  }
+  if(rem!==0) return makeFillPuzzle();
+
+  const counts={};
+  for(const id of sol) counts[id]=(counts[id]||0)+1;
+
+  const solutionIds=new Set(Object.keys(counts));
+  const solutionValues=sol.map(id=>NOTE_MAP[id].parts);
+  const safeDistractors=PALETTE_IDS.map(id=>NOTE_MAP[id])
+    .filter(n=>!solutionIds.has(n.id)&&n.parts<target.parts&&target.parts%n.parts!==0)
+    .filter(n=>!subsetSumsTo([...solutionValues,n.parts],target.parts)||!subsetSumsTo(solutionValues,target.parts-n.parts));
+
+  const chosen=safeDistractors.sort(()=>Math.random()-0.5).slice(0,2);
+  const pal=[];
+  for(const [id,cnt] of Object.entries(counts)) for(let i=0;i<cnt;i++) pal.push(id);
+  for(const n of chosen) pal.push(n.id);
+  pal.sort(()=>Math.random()-0.5);
+  return{target,solution:sol,palette:pal.map((id,i)=>({id,uid:`${id}-${i}`}))};
+}
+
+function FillMeasure({xp,setXp,onDone,onHome}){
+  const SESSION=8;
+  const [puzzle,setPuzzle]=useState(()=>makeFillPuzzle());
+  const [dropped,setDropped]=useState([]);
+  const [dragOver,setDragOver]=useState(false);
+  const [status,setStatus]=useState(null);
+  const [qn,setQn]=useState(1);
+  const [score,setScore]=useState({c:0,t:0});
+  const [sxp,setSxp]=useState(0);
+  const [streak,setStreak]=useState(0);
+  const [hint,setHint]=useState(false);
+  const dragRef=useRef(null);
+
+  const tp=puzzle.target.parts;
+  const filledParts=dropped.reduce((a,d)=>a+NOTE_MAP[d.id].parts,0);
+  const exact=filledParts===tp, over=filledParts>tp;
+  const barColor=over?'#FF4757':exact?'#2ED573':'#A29BFE';
+  const pct=Math.min(filledParts/tp,1);
+
+  const resetPuzzle=()=>{setPuzzle(makeFillPuzzle());setDropped([]);setStatus(null);setHint(false);};
+
+  const check=()=>{
+    if(status)return;
+    if(exact){
+      const ns=streak+1; setStreak(ns);
+      const bonus=hint?5:ns>=3?15:10;
+      setXp(x=>x+bonus); setSxp(s=>s+bonus);
+      const newScore={c:score.c+1,t:score.t+1}; setScore(newScore);
+      setStatus('correct');
+      if(qn>=SESSION){
+        setTimeout(()=>onDone({score:{correct:newScore.c,total:SESSION},sessionXp:sxp+bonus}),1200);
+      } else {
+        setTimeout(()=>{setQn(n=>n+1);resetPuzzle();},1200);
+      }
+    } else {
+      setStreak(0); setStatus(over?'overflow':'wrong');
+      setTimeout(()=>setStatus(null),1400);
+    }
+  };
+
+  const droppedUids=new Set(dropped.map(d=>d.uid));
+  const tapAdd=(uid,id)=>{if(!droppedUids.has(uid)){setDropped(p=>[...p,{uid,id}]);setStatus(null);}};
+  const tapRemove=(uid)=>{if(status!=='correct'){setDropped(d=>d.filter(x=>x.uid!==uid));setStatus(null);}};
+
+  const dropZoneClass='drop-zone'+(status==='correct'?' anim-pulse':status==='overflow'?' anim-shake':'');
+  const dropZoneStyle={
+    borderColor: dragOver?'#A29BFE':status==='correct'?'#2ED573':status==='overflow'?'#FF4757':'rgba(255,255,255,0.13)',
+    borderStyle: dragOver||status?'solid':'dashed',
+    background: dragOver?'rgba(162,155,254,0.12)':status==='correct'?'rgba(46,213,115,0.08)':'rgba(255,255,255,0.03)',
+  };
+
+  return e('div',{className:'app-inner'},
+    e(HeaderBar,{onHome,streak,xp}),
+    e(ProgBar,{cur:qn,total:SESSION,color:'linear-gradient(90deg,#1E90FF,#A29BFE)',label:`Round ${qn}/${SESSION}`,right:`${score.c} correct`}),
+
+    // Target card
+    e('div',{className:'card anim-fadeIn',style:{marginBottom:12}},
+      e('p',{style:{fontSize:11,fontWeight:700,letterSpacing:2,color:'rgba(255,255,255,0.3)',textTransform:'uppercase',marginBottom:14,textAlign:'center'}},'Fill the measure'),
+      e('div',{style:{display:'flex',alignItems:'center',gap:14,marginBottom:14}},
+        e('div',{className:'note-tile',style:{background:`${puzzle.target.color}18`,border:`2px solid ${puzzle.target.color}45`,flexShrink:0}},
+          e(NoteGlyph,{noteId:puzzle.target.id,size:50,color:puzzle.target.color}),
+          e('div',{className:'note-label',style:{color:puzzle.target.color,fontSize:11}},puzzle.target.label)
+        ),
+        e('div',{style:{flex:1}},
+          e('div',{style:{fontSize:13,color:'rgba(255,255,255,0.5)',lineHeight:1.4}},'Add notes equaling one ',
+            e('span',{style:{color:puzzle.target.color,fontWeight:800}},puzzle.target.label)
+          ),
+          hint && e('div',{style:{fontSize:11,color:'#FFC312',marginTop:6}},
+            '💡 Try: ',e('strong',null,NOTE_MAP[puzzle.solution[0]].label)
+          )
+        )
+      ),
+      // Fill bar
+      e('div',{className:'fill-track'},
+        e('div',{className:'fill-bar',style:{width:`${pct*100}%`,backgroundColor:barColor}})
+      ),
+      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(255,255,255,0.3)'}},
+        e('span',{style:{color:over?'#FF4757':exact?'#2ED573':'rgba(255,255,255,0.3)'}},
+          over?'Too many parts':exact?'✓ Exact!':filledParts>0?`${filledParts} of ${tp} parts`:'Tap notes below to add'
+        ),
+        e('span',null,`${Math.round(pct*100)}%`)
+      )
+    ),
+
+    // Drop zone
+    e('div',{className:dropZoneClass,style:dropZoneStyle,
+      onDragOver:ev=>{ev.preventDefault();setDragOver(true);},
+      onDrop:ev=>{ev.preventDefault();setDragOver(false);if(!dragRef.current)return;const{uid,id}=dragRef.current;if(!droppedUids.has(uid)){setDropped(p=>[...p,{uid,id}]);setStatus(null);}dragRef.current=null;},
+      onDragLeave:()=>setDragOver(false),
+    },
+      dropped.length===0 && e('p',{style:{color:'rgba(255,255,255,0.2)',fontSize:13,fontWeight:600}},'Tap notes below · drag & drop works too'),
+      ...dropped.map(d=>{
+        const n=NOTE_MAP[d.id];
+        return e('button',{key:d.uid,style:{background:`${n.color}22`,border:`1.5px solid ${n.color}60`,borderRadius:13,padding:'8px 10px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3},onClick:()=>tapRemove(d.uid)},
+          e(NoteGlyph,{noteId:d.id,size:34,color:n.color}),
+          e('span',{style:{fontSize:9,color:n.color,fontWeight:700}},n.parts+'p')
+        );
+      })
+    ),
+
+    // Palette
+    e('div',{className:'card',style:{marginBottom:12,padding:'13px 11px'}},
+      e('p',{style:{fontSize:10,fontWeight:700,letterSpacing:1.5,color:'rgba(255,255,255,0.22)',textTransform:'uppercase',marginBottom:10,textAlign:'center'}},'Tap to add · Tap placed note to remove'),
+      e('div',{className:'palette-grid'},
+        puzzle.palette.map(p=>{
+          const n=NOTE_MAP[p.id], used=droppedUids.has(p.uid);
+          return e('button',{key:p.uid,className:'palette-btn',
+            style:{background:used?'rgba(255,255,255,0.02)':`${n.color}18`,border:`1.5px solid ${used?'rgba(255,255,255,0.06)':n.color+'50'}`,opacity:used?0.2:1,cursor:used?'default':'grab'},
+            draggable:!used,
+            onDragStart:()=>{dragRef.current={uid:p.uid,id:p.id};},
+            onClick:()=>!used&&tapAdd(p.uid,p.id)
+          },
+            e(NoteGlyph,{noteId:p.id,size:36,color:used?'#555':n.color}),
+            e('span',{style:{fontSize:9,color:used?'#444':n.color,fontWeight:700}},n.parts+'p')
+          );
+        })
+      )
+    ),
+
+    // Actions
+    e('div',{style:{display:'flex',gap:10}},
+      e('button',{className:'btn-ghost',style:{flex:1},onClick:()=>{setDropped([]);setStatus(null);}},'Clear'),
+      e('button',{className:'btn-ghost',style:{flex:1,color:'#FFC312',borderColor:'rgba(255,195,18,0.25)'},onClick:()=>setHint(true)},'💡 Hint'),
+      e('button',{style:{flex:2,padding:'13px 0',borderRadius:14,background:exact?'linear-gradient(135deg,#2ED573,#00b894)':'linear-gradient(135deg,#1E90FF,#0984e3)',color:'#fff',fontSize:15,fontWeight:800},onClick:check},
+        status==='correct'?'✓ Nice!':'Check →'
+      )
+    ),
+
+    status&&status!=='correct' && e('div',null,
+      status==='overflow'
+        ? e('div',{className:'fb-wrong'},'Too many parts — remove a note')
+        : e('div',{className:'fb-warn'},`Not quite — you need exactly ${tp} parts total`)
+    )
+  );
+}
+
+// ─── MODE 3: MATCH & GROUP ───────────────────────────────────────────────────
+function makeMatchPairs(count=4){
+  const shuffled=[...NOTES].sort(()=>Math.random()-0.5);
+  const chosen=shuffled.slice(0,count);
+  return chosen.map(note=>{
+    const smaller=NOTES.filter(s=>s.parts<note.parts&&note.parts%s.parts===0);
+    const useRelation=smaller.length>0&&Math.random()>0.5;
+    if(useRelation){
+      const s=smaller[Math.floor(Math.random()*smaller.length)];
+      const cnt=note.parts/s.parts;
+      return{noteId:note.id,noteLabel:note.label,color:note.color,matchId:`m-${note.id}`,displayShort:`${cnt}×`,displaySub:s.label};
+    }
+    return{noteId:note.id,noteLabel:note.label,color:note.color,matchId:`m-${note.id}`,displayShort:`${note.parts}`,displaySub:'parts'};
+  });
+}
+
+function makeMatchCards(pairs){
+  const cards=[
+    ...pairs.map((p,i)=>({uid:`note-${i}`,type:'note',noteId:p.noteId,color:p.color,label:p.noteLabel,matchId:p.matchId})),
+    ...pairs.map((p,i)=>({uid:`num-${i}`, type:'number',noteId:p.noteId,color:p.color,displayShort:p.displayShort,displaySub:p.displaySub,matchId:p.matchId})),
+  ];
+  return cards.sort(()=>Math.random()-0.5);
+}
+
+function MatchGroup({xp,setXp,onDone,onHome}){
+  const SESSION=6, PAIR_COUNT=4;
+  const [pairs]=useState(()=>makeMatchPairs(PAIR_COUNT));
+  const [cards,setCards]=useState(()=>makeMatchCards(makeMatchPairs(PAIR_COUNT)));
+  const [selected,setSelected]=useState(null);
+  const [matched,setMatched]=useState(new Set());
+  const [wrong,setWrong]=useState(null);
+  const [qn,setQn]=useState(1);
+  const [score,setScore]=useState({c:0,t:0});
+  const [sxp,setSxp]=useState(0);
+  const [streak,setStreak]=useState(0);
+  const [errors,setErrors]=useState(0);
+  const [roundDone,setRoundDone]=useState(false);
+
+  const newRound=()=>{
+    const np=makeMatchPairs(PAIR_COUNT);
+    setCards(makeMatchCards(np));
+    setSelected(null); setMatched(new Set()); setWrong(null);
+    setRoundDone(false); setErrors(0);
+  };
+
+  const tap=(uid)=>{
+    if(roundDone)return;
+    const card=cards.find(c=>c.uid===uid);
+    if(!card||matched.has(card.matchId))return;
+    if(!selected){setSelected(uid);return;}
+    if(selected===uid){setSelected(null);return;}
+    const first=cards.find(c=>c.uid===selected);
+    if(first.type===second.type){setSelected(uid);return;}
+    const second=card;
+    if(first.type===second.type){setSelected(uid);return;}
+    if(first.matchId===second.matchId){
+      const nm=new Set(matched); nm.add(first.matchId); setMatched(nm); setSelected(null);
+      if(nm.size===PAIR_COUNT){
+        setRoundDone(true);
+        const ns=streak+1; setStreak(ns);
+        const bonus=errors===0?(ns>=3?18:12):errors<=1?8:4;
+        setXp(x=>x+bonus); setSxp(s=>s+bonus);
+        const newScore={c:score.c+1,t:score.t+1}; setScore(newScore);
+        if(qn>=SESSION){
+          setTimeout(()=>onDone({score:{correct:newScore.c,total:SESSION},sessionXp:sxp+bonus}),900);
+        } else {
+          setTimeout(()=>{setQn(n=>n+1);newRound();},900);
+        }
+      }
+    } else {
+      setErrors(er=>er+1); setStreak(0);
+      setWrong(uid); setTimeout(()=>{setWrong(null);setSelected(null);},700);
+    }
+  };
+
+  return e('div',{className:'app-inner'},
+    e(HeaderBar,{onHome,streak,xp}),
+    e(ProgBar,{cur:qn,total:SESSION,color:'linear-gradient(90deg,#FFC312,#FF9F43)',label:`Round ${qn}/${SESSION}`,right:`${matched.size}/${PAIR_COUNT} matched`}),
+
+    e('div',{className:'card',style:{marginBottom:14,textAlign:'center'}},
+      e('p',{style:{fontSize:11,fontWeight:700,letterSpacing:2,color:'rgba(255,255,255,0.3)',textTransform:'uppercase',marginBottom:4}},'Match the pairs'),
+      e('p',{style:{fontSize:13,color:'rgba(255,255,255,0.4)'}},'Tap a note, then tap its matching value')
+    ),
+
+    e('div',{className:'match-grid'},
+      cards.map(c=>{
+        const isMatched=matched.has(c.matchId), isSel=selected===c.uid, isWrong=wrong===c.uid;
+        let bg='rgba(255,255,255,0.06)',bc='rgba(255,255,255,0.1)',op=1,cls='match-card';
+        if(isMatched) {bg=`${c.color}18`;bc=`${c.color}60`;op=0.45;}
+        else if(isWrong) {bg='rgba(255,71,87,0.2)';bc='#FF4757';cls+=' anim-shake';}
+        else if(isSel)   {bg=`${c.color}25`;bc=c.color;}
+        return e('button',{key:c.uid,className:cls,
+          style:{background:bg,borderColor:bc,opacity:op,
+            boxShadow:isSel?`0 0 0 3px ${c.color}50`:'none',cursor:isMatched?'default':'pointer'},
+          onClick:()=>!isMatched&&tap(c.uid)
+        },
+          c.type==='note'
+            ? [e(NoteGlyph,{key:'g',noteId:c.noteId,size:44,color:isMatched?'#555':isSel?c.color:'#fff'}),
+               e('span',{key:'l',style:{fontSize:11,fontWeight:700,color:isMatched?'#555':isSel?c.color:'rgba(255,255,255,0.7)',textAlign:'center',lineHeight:1.3}},c.label)]
+            : [e('span',{key:'s',style:{fontSize:28,fontWeight:900,color:isMatched?'#555':isSel?c.color:'#fff',lineHeight:1}},c.displayShort),
+               e('span',{key:'b',style:{fontSize:11,fontWeight:600,color:isMatched?'#444':isSel?c.color:'rgba(255,255,255,0.45)',textAlign:'center'}},c.displaySub)]
+        );
+      })
+    ),
+
+    roundDone && e('div',{className:'card anim-fadeIn',style:{textAlign:'center',padding:14}},
+      e('div',{style:{fontSize:22,fontWeight:900,color:'#2ED573'}},
+        errors===0?'🎯 Perfect round!':errors<=1?'⭐ Nice work!':'✓ Round cleared'
+      ),
+      e('div',{style:{fontSize:12,color:'rgba(255,255,255,0.4)',marginTop:4}},
+        errors===0?'No mistakes — full bonus XP!':errors===1?'1 mistake':`${errors} mistakes`
+      )
+    ),
+
+    !roundDone&&errors>0 && e('div',{style:{textAlign:'center',fontSize:12,color:'rgba(255,71,87,0.6)',marginTop:4}},
+      `${errors} ${errors===1?'mistake':'mistakes'} this round`
+    )
+  );
+}
+
+// ─── RESULT SCREEN ───────────────────────────────────────────────────────────
+function ResultScreen({result,xp,mode,onReplay,onHome}){
+  const {score,sessionXp}=result;
+  const pct=Math.round((score.correct/score.total)*100);
+  const g=pct===100?'🏆 Perfect!':pct>=80?'🌟 Great job!':pct>=60?'👍 Good effort!':'💪 Keep practicing!';
+  const labels={quiz:'Division Quiz',fill:'Fill the Measure',match:'Match & Group'};
+  return e('div',{className:'card app-inner anim-fadeIn',style:{textAlign:'center'}},
+    e('div',{style:{fontSize:50,marginBottom:8}},g.split(' ')[0]),
+    e('h2',{style:{fontSize:26,fontWeight:900,marginBottom:3}},g.slice(2)),
+    e('p',{style:{color:'rgba(255,255,255,0.35)',marginBottom:22,fontSize:13}},labels[mode]+' complete'),
+    e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:22}},
+      [{l:'Score',v:`${score.correct}/${score.total}`,c:'#A29BFE'},{l:'Accuracy',v:`${pct}%`,c:'#2ED573'},{l:'XP Earned',v:`+${sessionXp}`,c:'#FFC312'}]
+        .map(s=>e('div',{key:s.l,style:{background:'rgba(255,255,255,0.05)',borderRadius:14,padding:'13px 6px',border:`1px solid ${s.c}28`}},
+          e('div',{style:{fontSize:20,fontWeight:900,color:s.c}},s.v),
+          e('div',{style:{fontSize:10,color:'rgba(255,255,255,0.35)',marginTop:2}},s.l)
+        ))
+    ),
+    e(XPBar,{xp}),
+    e('div',{style:{display:'flex',gap:10}},
+      e('button',{className:'btn-primary',style:{flex:1},onClick:onReplay},'Play Again'),
+      e('button',{className:'btn-ghost',style:{flex:1,padding:'14px 0',fontSize:15,textAlign:'center'},onClick:onHome},'Home')
+    )
+  );
+}
+
+// ─── HOME ─────────────────────────────────────────────────────────────────────
+const MODES=[
+  {m:'quiz', icon:'🔢',title:'Division Quiz',    sub:'How many parts fit? Multiple choice.',   grad:'linear-gradient(135deg,#A29BFE,#6c5ce7)',sh:'rgba(162,155,254,0.3)'},
+  {m:'fill', icon:'🎯',title:'Fill the Measure', sub:'Build a note from smaller values.',       grad:'linear-gradient(135deg,#1E90FF,#0984e3)',sh:'rgba(30,144,255,0.3)'},
+  {m:'match',icon:'🃏',title:'Match & Group',    sub:'Match notes to their equivalent values.',grad:'linear-gradient(135deg,#FFC312,#e17055)',sh:'rgba(255,195,18,0.3)'},
+];
+
+function Home({xp,onGo}){
+  return e('div',{className:'card app-inner anim-fadeIn'},
+    e(FloatingNotes),
+    e('div',{style:{fontSize:42,marginBottom:5,textAlign:'center'}},'🎵'),
+    e('h1',{style:{fontSize:30,fontWeight:900,letterSpacing:-1,marginBottom:5,textAlign:'center'}},
+      'Note',e('span',{style:{color:'#A29BFE'}},'Ninja')
+    ),
+    e('p',{style:{color:'rgba(255,255,255,0.4)',fontSize:13,marginBottom:20,lineHeight:1.5,textAlign:'center'}},
+      'Master note values & subdivisions.',e('br'),'Pick a mode to train.'
+    ),
+    e(XPBar,{xp}),
+    e('div',{style:{marginBottom:20}},
+      MODES.map(({m,icon,title,sub,grad,sh})=>
+        e('button',{key:m,className:'mode-btn',style:{background:grad,boxShadow:`0 8px 22px ${sh}`},onClick:()=>onGo(m)},
+          e('span',{className:'mode-icon'},icon),
+          e('div',null,
+            e('div',{className:'mode-title'},title),
+            e('div',{className:'mode-sub'},sub)
+          )
+        )
+      )
+    ),
+    e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}},
+      NOTES.slice(0,6).map(n=>
+        e('div',{key:n.id,style:{background:'rgba(255,255,255,0.04)',borderRadius:12,padding:'8px 10px',display:'flex',alignItems:'center',gap:8,border:`1px solid ${n.color}22`}},
+          e(NoteGlyph,{noteId:n.id,size:30,color:n.color}),
+          e('div',null,
+            e('div',{style:{fontSize:10,fontWeight:700,color:n.color}},n.label),
+            e('div',{style:{fontSize:10,color:'rgba(255,255,255,0.3)'}},`${n.parts} ${n.parts===1?'part':'parts'}`)
+          )
+        )
+      )
+    )
+  );
+}
+
+// ─── ROOT APP ─────────────────────────────────────────────────────────────────
+function App(){
+  const [screen,setScreen]=useState('home');
+  const [xp,setXp]=useState(0);
+  const [result,setResult]=useState(null);
+  const [mode,setMode]=useState(null);
+
+  const go=(m)=>{setMode(m);setScreen(m);};
+  const done=(r)=>{setResult(r);setScreen('result');};
+
+  if(screen==='home') return e(Home,{xp,onGo:go});
+  if(screen==='result') return e(ResultScreen,{result,xp,mode,onReplay:()=>go(mode),onHome:()=>setScreen('home')});
+  if(screen==='quiz')  return e(DivisionQuiz,{xp,setXp,onDone:done,onHome:()=>setScreen('home')});
+  if(screen==='fill')  return e(FillMeasure,{xp,setXp,onDone:done,onHome:()=>setScreen('home')});
+  if(screen==='match') return e(MatchGroup,{xp,setXp,onDone:done,onHome:()=>setScreen('home')});
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+</script>
+
+</body>
+</html>
